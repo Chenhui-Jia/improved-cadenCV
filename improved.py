@@ -2,15 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-6.819 Advances in Computer Vision
-Bill Freeman, Antonio Torralba
+
 
 Final Project - Optical Music Recognition Program
-cadenCV
+improved cadenCV
 """
-__author__ = "Afika Nyati"
-__email__ = "anyati@mit.edu"
-__status__ = "Prototype"
+__author__ = "Afika Nyati" "Chenhui Jia"
+
 
 # cv2.imshow("Input", no_staff_img)
 # cv2.waitKey(0)
@@ -39,10 +37,13 @@ from bar import Bar
 #-------------------------------------------------------------------------------
 
 
+
 clef_paths = {
     "treble": [
         "resources/template/clef/treble_1.jpg",
-        "resources/template/clef/treble_2.jpg"
+        "resources/template/clef/treble_3.jpg",
+        "resources/template/clef/treble_2.jpg",
+        "resources/template/clef/treble_4.jpg"
     ],
     "bass": [
         "resources/template/clef/bass_1.jpg"
@@ -111,7 +112,7 @@ clef_imgs = {
 # Time Signatures
 time_imgs = {
     "common": [cv2.imread(time, 0) for time in ["resources/template/time/common.jpg"]],
-    "44": [cv2.imread(time, 0) for time in ["resources/template/time/44.jpg"]],
+    "44": [cv2.imread(time, 0) for time in ["resources/template/time/44.jpg","resources/template/time/44_1.jpg","resources/template/time/44_2.jpg"]],
     "34": [cv2.imread(time, 0) for time in ["resources/template/time/34.jpg"]],
     "24": [cv2.imread(time, 0) for time in ["resources/template/time/24.jpg"]],
     "68": [cv2.imread(time, 0) for time in ["resources/template/time/68.jpg"]]
@@ -137,6 +138,7 @@ eighth_flag_imgs = [cv2.imread(flag, 0) for flag in flag_paths]
 
 # Bar line
 bar_imgs = [cv2.imread(barline, 0) for barline in barline_paths]
+
 
 
 #-------------------------------------------------------------------------------
@@ -642,92 +644,76 @@ def merge_boxes(boxes, threshold):
 
 
 if __name__ == "__main__":
+    
 
-    #-------------------------------------------------------------------------------
-    # Image Preprocessing (Blurring, Noise Removal, Binarization, Deskewing)
-    #-------------------------------------------------------------------------------
-
-    # Noise Removal: https://docs.opencv.org/3.3.1/d5/d69/tutorial_py_non_local_means.html
-    # Deskewing: https://www.pyimagesearch.com/2017/02/20/text-skew-correction-opencv-python/
-    # Binarization + Blurring (Otsu): https://docs.opencv.org/3.3.1/d7/d4d/tutorial_py_thresholding.html
-
-    # ============ Read Image ============
-    img_file = "Mary.jpg"
+   # ============ Read Image ============
+    img_file = "example5.jpg"
     img = cv2.imread(img_file, 0)
-
-    # ============ Noise Removal ============
+   
+   # ============ Noise Removal ============
 
     img = cv2.fastNlMeansDenoising(img, None, 10, 7, 21)
+   
 
-    # ============ Binarization ============
+   
+   # ============ Binarization ============
 
-    # Global Thresholding
-    # retval, img = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
+   # Global Thresholding
+   # retval, img = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
 
-    # Otsu's Thresholding
+   # Otsu's Thresholding
     retval, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     cv2.imwrite('binarized.jpg', img)
-
-    # ============ Deskewing ============
-
-    # angle, img = deskew(img)
-    # print("[INFO] Deskew Angle: {:.3f}".format(angle))
-    # cv2.imshow("Input", img)
-    # cv2.waitKey(0)
-
-    # ============ Reference Lengths ============
-    # Reference lengths staff line thickness (staffline_height)
-    # and vertical line distance within the same staff (staffspace_height)
-    # computed, providing the basic scale for relative size comparisons
-
-    # Use run-length encoding on columns to estimate staffline height and staffspace height
-
     line_width, line_spacing = get_ref_lengths(img)
 
     print("[INFO] Staff line Width: ", line_width)
     print("[INFO] Staff line Spacing: ", line_spacing)
+   
+   #-------------------------------------------------------------------------------
+   # Staff Line Detection
+   #-------------------------------------------------------------------------------
 
-    #-------------------------------------------------------------------------------
-    # Staff Line Detection
-    #-------------------------------------------------------------------------------
+   # In practice, several horizontal projections on images with slightly different
+   # rotation angles are computed to deal with not completely horizontal staff lines.
+   # The projection with the highest local maxima is then chosen.
 
-    # In practice, several horizontal projections on images with slightly different
-    # rotation angles are computed to deal with not completely horizontal staff lines.
-    # The projection with the highest local maxima is then chosen.
-
-    # ============ Find Staff Line Rows ============
+   # ============ Find Staff Line Rows ============
 
     all_staffline_vertical_indices = find_staffline_rows(img, line_width, line_spacing)
     print("[INFO] Found ", len(all_staffline_vertical_indices), " sets of staff lines")
 
-    # ============ Find Staff Line Columns ============
+   # ============ Find Staff Line Columns ============
 
-    # Find column with largest index that has no black pixels
+   # Find column with largest index that has no black pixels
 
     all_staffline_horizontal_indices = find_staffline_columns(img, all_staffline_vertical_indices, line_width, line_spacing)
     print("[INFO] Found all staff line horizontal extremes")
+    print(all_staffline_horizontal_indices)
 
     # ============ Show Detected Staffs ============
     staffs = []
     print("all_staffline_vertical_indices",all_staffline_vertical_indices)
-    print("all_staffline_vertical_indices",all_staffline_vertical_indices)
-    print("linewidth-1",line_width-1)
     #print(all_staffline_vertical_indices[1])
-    half_dist_between_staffs = (all_staffline_vertical_indices[1][0][0] - 
-                                all_staffline_vertical_indices[0][4][line_width - 1])//2
-    #half_dist_between_staffs = (all_staffline_vertical_indices[0][0][0] - all_staffline_vertical_indices[0][4][line_width - 1])//2
+    if len(all_staffline_vertical_indices)==1:
+        half_dist_between_staffs = -(all_staffline_vertical_indices[0][0][0] - all_staffline_vertical_indices[0][4][line_width - 1])//2
+    else:
+        half_dist_between_staffs = (all_staffline_vertical_indices[1][0][0] - all_staffline_vertical_indices[0][4][line_width - 1])//2
 
     for i in range(len(all_staffline_vertical_indices)):
-        # Create Bounding Box
+       
+       # Create Bounding Box
         x = all_staffline_horizontal_indices[i][0]
         y = all_staffline_vertical_indices[i][0][0]
         width = all_staffline_horizontal_indices[i][1] - x
         height = all_staffline_vertical_indices[i][4][line_width - 1] - y
         staff_box = BoundingBox(x, y, width, height)
-
-        # Create Cropped Staff Image
-        staff_img = img[max(0, y - half_dist_between_staffs): min(y+ height + half_dist_between_staffs, img.shape[0] - 1), x:x+width]
-
+        
+       # Create Cropped Staff Image
+        if len(all_staffline_vertical_indices)==1:
+           staff_img = img.copy()
+        else:
+           staff_img = img[max(0, y - half_dist_between_staffs): min(y+ height + half_dist_between_staffs, img.shape[0] - 1), x:x+width]
+       
         # Normalize Staff line Numbers to Cropped Image
         pixel = half_dist_between_staffs
         normalized_staff_line_vertical_indices = []
@@ -740,7 +726,10 @@ if __name__ == "__main__":
             normalized_staff_line_vertical_indices.append(line)
             pixel += line_spacing + 1
 
-        staff = Staff(normalized_staff_line_vertical_indices, staff_box, line_width, line_spacing, staff_img)
+        if len(all_staffline_vertical_indices)==1:
+            staff = Staff(all_staffline_vertical_indices[0], staff_box, line_width, line_spacing, staff_img)
+        else:
+            staff = Staff(normalized_staff_line_vertical_indices, staff_box, line_width, line_spacing, staff_img)
         staffs.append(staff)
 
     staff_boxes_img = img.copy()

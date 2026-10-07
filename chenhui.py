@@ -1,23 +1,9 @@
-#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-
 """
-6.819 Advances in Computer Vision
-Bill Freeman, Antonio Torralba
+Created on Fri Apr 22 16:36:34 2022
 
-Final Project - Optical Music Recognition Program
-cadenCV
+@author: jiach
 """
-__author__ = "Afika Nyati"
-__email__ = "anyati@mit.edu"
-__status__ = "Prototype"
-
-# cv2.imshow("Input", no_staff_img)
-# cv2.waitKey(0)
-
-#-------------------------------------------------------------------------------
-# Import Statements
-#-------------------------------------------------------------------------------
 
 import sys
 import cv2
@@ -42,6 +28,7 @@ from bar import Bar
 clef_paths = {
     "treble": [
         "resources/template/clef/treble_1.jpg",
+        "resources/template/clef/treble_3.jpg",
         "resources/template/clef/treble_2.jpg"
     ],
     "bass": [
@@ -111,7 +98,7 @@ clef_imgs = {
 # Time Signatures
 time_imgs = {
     "common": [cv2.imread(time, 0) for time in ["resources/template/time/common.jpg"]],
-    "44": [cv2.imread(time, 0) for time in ["resources/template/time/44.jpg"]],
+    "44": [cv2.imread(time, 0) for time in ["resources/template/time/44_1.jpg"]],
     "34": [cv2.imread(time, 0) for time in ["resources/template/time/34.jpg"]],
     "24": [cv2.imread(time, 0) for time in ["resources/template/time/24.jpg"]],
     "68": [cv2.imread(time, 0) for time in ["resources/template/time/68.jpg"]]
@@ -227,7 +214,7 @@ pitch_to_MIDI = {
     "Db5": 73,
     "C#5": 73,
     "C5": 72,
-    "B4": 71,
+    "B-4": 71,
     "Bb4": 70,
     "A#4": 70,
     "A4": 69,
@@ -236,7 +223,7 @@ pitch_to_MIDI = {
     "G4": 67,
     "Gb4": 66,
     "F#4": 66,
-    "F4": 65,
+    "F-4": 65,
     "E4": 64,
     "Eb4": 63,
     "D#4": 63,
@@ -270,7 +257,7 @@ pitch_to_MIDI = {
     "G2": 43,
     "Gb2": 42,
     "F#2": 42,
-    "F2": 41,
+    "F-2": 41,
     "E2": 40,
     "Eb2": 39,
     "D#2": 39,
@@ -281,7 +268,7 @@ pitch_to_MIDI = {
     "B1": 35,
     "Bb1": 34,
     "A#1": 34,
-    "A1": 33,
+    "A-1": 33,
     "Ab1": 32,
     "G#1": 32,
     "G1": 31,
@@ -298,7 +285,9 @@ pitch_to_MIDI = {
     "B0": 23,
     "Bb0": 22,
     "A#0": 22,
-    "A0": 21
+    "A0": 21,
+    "C0":16,
+    "C-4": 60
 }
 
 MIDI_to_pitch = {
@@ -432,12 +421,11 @@ def deskew(img):
 
     return angle, rotated
 
-
 def get_ref_lengths(img):
     num_rows = img.shape[0]  # Image Height (number of rows)
-    print(num_rows)
+    
     num_cols = img.shape[1]  # Image Width (number of columns)
-    print(num_cols)
+ 
     rle_image_white_runs = []  # Cumulative white run list
     rle_image_black_runs = []  # Cumulative black run list
     sum_all_consec_runs = []  # Cumulative consecutive black white runs
@@ -493,7 +481,6 @@ def get_ref_lengths(img):
 
     return line_width, line_spacing
 
-
 def find_staffline_rows(img, line_width, line_spacing):
     num_rows = img.shape[0]  # Image Height (number of rows)
     num_cols = img.shape[1]  # Image Width (number of columns)
@@ -508,15 +495,17 @@ def find_staffline_rows(img, line_width, line_spacing):
                 num_black_pixels += 1
 
         row_black_pixel_histogram.append(num_black_pixels)
+        #print(row_black_pixel_histogram)
 
-    # plt.bar(np.arange(num_rows), row_black_pixel_histogram)
-    # plt.show()
+    plt.bar(np.arange(num_rows), row_black_pixel_histogram)
+    plt.show()
 
     all_staff_row_indices = []
     num_stafflines = 5
     threshold = 0.4
     staff_length = num_stafflines * (line_width + line_spacing) - line_spacing
     iter_range = num_rows - staff_length + 1
+   
 
     # Find stafflines by finding sum of rows that occur according to
     # staffline width and staffline space which contain as many black pixels
@@ -590,27 +579,9 @@ def find_staffline_columns(img, all_staffline_vertical_indices, line_width, line
 
     return all_staff_extremes
 
-
-def remove_stafflines(img, all_staffline_vertical_indices):
-    no_staff_img = deepcopy(img)
-    for staff in all_staffline_vertical_indices:
-        for line in staff:
-            for row in line:
-                # Remove top and bottom line to be sure
-                no_staff_img[row - 1, :] = 255
-                no_staff_img[row, :] = 255
-                no_staff_img[row + 1, :] = 255
-
-    return no_staff_img
-
-
-def open_file(path):
-    img = Image.open(path)
-    img.show()
-
-
 def locate_templates(img, templates, start, stop, threshold):
     locations, scale = match(img, templates, start, stop, threshold)
+   
     img_locations = []
     for i in range(len(templates)):
         w, h = templates[i].shape[::-1]
@@ -640,25 +611,19 @@ def merge_boxes(boxes, threshold):
         filtered_boxes.append(r)
     return filtered_boxes
 
-
 if __name__ == "__main__":
-
-    #-------------------------------------------------------------------------------
-    # Image Preprocessing (Blurring, Noise Removal, Binarization, Deskewing)
-    #-------------------------------------------------------------------------------
-
-    # Noise Removal: https://docs.opencv.org/3.3.1/d5/d69/tutorial_py_non_local_means.html
-    # Deskewing: https://www.pyimagesearch.com/2017/02/20/text-skew-correction-opencv-python/
-    # Binarization + Blurring (Otsu): https://docs.opencv.org/3.3.1/d7/d4d/tutorial_py_thresholding.html
-
     # ============ Read Image ============
-    img_file = "Mary.jpg"
+    img_file = "example5.jpg"
     img = cv2.imread(img_file, 0)
-
+    
     # ============ Noise Removal ============
 
     img = cv2.fastNlMeansDenoising(img, None, 10, 7, 21)
+    
 
+    fig, ax = plt.subplots()
+    im = ax.imshow(img, extent=[0, 300, 0, 300])
+    plt.show()
     # ============ Binarization ============
 
     # Global Thresholding
@@ -667,26 +632,11 @@ if __name__ == "__main__":
     # Otsu's Thresholding
     retval, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     cv2.imwrite('binarized.jpg', img)
-
-    # ============ Deskewing ============
-
-    # angle, img = deskew(img)
-    # print("[INFO] Deskew Angle: {:.3f}".format(angle))
-    # cv2.imshow("Input", img)
-    # cv2.waitKey(0)
-
-    # ============ Reference Lengths ============
-    # Reference lengths staff line thickness (staffline_height)
-    # and vertical line distance within the same staff (staffspace_height)
-    # computed, providing the basic scale for relative size comparisons
-
-    # Use run-length encoding on columns to estimate staffline height and staffspace height
-
     line_width, line_spacing = get_ref_lengths(img)
 
     print("[INFO] Staff line Width: ", line_width)
     print("[INFO] Staff line Spacing: ", line_spacing)
-
+    
     #-------------------------------------------------------------------------------
     # Staff Line Detection
     #-------------------------------------------------------------------------------
@@ -706,27 +656,32 @@ if __name__ == "__main__":
 
     all_staffline_horizontal_indices = find_staffline_columns(img, all_staffline_vertical_indices, line_width, line_spacing)
     print("[INFO] Found all staff line horizontal extremes")
-
+    print(all_staffline_horizontal_indices)
+    
     # ============ Show Detected Staffs ============
     staffs = []
     print("all_staffline_vertical_indices",all_staffline_vertical_indices)
-    print("all_staffline_vertical_indices",all_staffline_vertical_indices)
-    print("linewidth-1",line_width-1)
     #print(all_staffline_vertical_indices[1])
-    half_dist_between_staffs = (all_staffline_vertical_indices[1][0][0] - 
-                                all_staffline_vertical_indices[0][4][line_width - 1])//2
-    #half_dist_between_staffs = (all_staffline_vertical_indices[0][0][0] - all_staffline_vertical_indices[0][4][line_width - 1])//2
-
+    if len(all_staffline_vertical_indices)!=1:
+        half_dist_between_staffs = (all_staffline_vertical_indices[1][0][0] - all_staffline_vertical_indices[0][4][line_width - 1])//2
+    else:
+        half_dist_between_staffs = -(all_staffline_vertical_indices[0][0][0] - all_staffline_vertical_indices[0][4][line_width - 1])//2
+    
     for i in range(len(all_staffline_vertical_indices)):
+        
         # Create Bounding Box
         x = all_staffline_horizontal_indices[i][0]
         y = all_staffline_vertical_indices[i][0][0]
         width = all_staffline_horizontal_indices[i][1] - x
         height = all_staffline_vertical_indices[i][4][line_width - 1] - y
         staff_box = BoundingBox(x, y, width, height)
-
+         
         # Create Cropped Staff Image
-        staff_img = img[max(0, y - half_dist_between_staffs): min(y+ height + half_dist_between_staffs, img.shape[0] - 1), x:x+width]
+        if len(all_staffline_vertical_indices)==1:
+            staff_img = img.copy()
+        else:
+            staff_img = img[max(0, y - half_dist_between_staffs): min(y+ height + half_dist_between_staffs, img.shape[0] - 1), x:x+width]
+        
 
         # Normalize Staff line Numbers to Cropped Image
         pixel = half_dist_between_staffs
@@ -740,7 +695,11 @@ if __name__ == "__main__":
             normalized_staff_line_vertical_indices.append(line)
             pixel += line_spacing + 1
 
-        staff = Staff(normalized_staff_line_vertical_indices, staff_box, line_width, line_spacing, staff_img)
+        if len(all_staffline_vertical_indices)==1:
+            staff = Staff(all_staffline_vertical_indices[0], staff_box, line_width, line_spacing, staff_img)
+        else: 
+            staff = Staff(normalized_staff_line_vertical_indices, staff_box, line_width, line_spacing, staff_img)
+        
         staffs.append(staff)
 
     staff_boxes_img = img.copy()
@@ -755,9 +714,10 @@ if __name__ == "__main__":
         cv2.putText(staff_boxes_img, "Staff", (x, y), cv2.FONT_HERSHEY_DUPLEX, 0.9 , red)
 
     cv2.imwrite('output/detected_staffs.jpg', staff_boxes_img)
+    
     # open_file('output/detected_staffs.jpg')
     print("[INFO] Saving detected staffs onto disk")
-
+    
     #-------------------------------------------------------------------------------
     # Symbol Segmentation, Object Recognition, and Semantic Reconstruction
     #-------------------------------------------------------------------------------
@@ -769,7 +729,7 @@ if __name__ == "__main__":
     # Find all primitives on each stave first
     # then move from left to right and create structure
 
-    # ============ Determine Clef, Time Signature ============
+ # ============ Determine Clef, Time Signature ============
 
     staff_imgs_color = []
 
@@ -803,7 +763,8 @@ if __name__ == "__main__":
 
         else:
             # A clef should always be found
-            print("[INFO] No clef found on staff", i+1)
+            print("[INFO] No clef found on staff", i+1)   
+          
 
         # # ------- Time -------
         for time in time_imgs:
@@ -834,420 +795,412 @@ if __name__ == "__main__":
             print("[INFO] No time signature available for staff", i + 1)
 
         staff_imgs_color.append(staff_img_color)
+        
+        # ============ Find Primitives ============
 
-    # ============ Find Primitives ============
+        # always assert that notes in a bar equal duration dictated by time signature
+        for i in range(len(staffs)):
+            print("[INFO] Finding Primitives on Staff ", i+1)
+            staff_primitives = []
+            staff_img = staffs[i].getImage()
+            staff_img_color = staff_imgs_color[i]
+            red = (0, 0, 255)
+            box_thickness = 2
 
-    # always assert that notes in a bar equal duration dictated by time signature
-    for i in range(len(staffs)):
-        print("[INFO] Finding Primitives on Staff ", i+1)
-        staff_primitives = []
-        staff_img = staffs[i].getImage()
-        staff_img_color = staff_imgs_color[i]
-        red = (0, 0, 255)
-        box_thickness = 2
+            # ------- Find primitives on staff -------
+            print("[INFO] Matching sharp accidental template...")
+            sharp_boxes = locate_templates(staff_img, sharp_imgs, sharp_lower, sharp_upper, sharp_thresh)
+            sharp_boxes = merge_boxes([j for i in sharp_boxes for j in i], 0.5)
 
-        # ------- Find primitives on staff -------
-        print("[INFO] Matching sharp accidental template...")
-        sharp_boxes = locate_templates(staff_img, sharp_imgs, sharp_lower, sharp_upper, sharp_thresh)
-        sharp_boxes = merge_boxes([j for i in sharp_boxes for j in i], 0.5)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in sharp_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "sharp"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                sharp = Primitive("sharp", 0, box)
+                staff_primitives.append(sharp)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in sharp_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "sharp"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            sharp = Primitive("sharp", 0, box)
-            staff_primitives.append(sharp)
+            print("[INFO] Matching flat accidental template...")
+            flat_boxes = locate_templates(staff_img, flat_imgs, flat_lower, flat_upper, flat_thresh)
+            flat_boxes = merge_boxes([j for i in flat_boxes for j in i], 0.5)
 
-        print("[INFO] Matching flat accidental template...")
-        flat_boxes = locate_templates(staff_img, flat_imgs, flat_lower, flat_upper, flat_thresh)
-        flat_boxes = merge_boxes([j for i in flat_boxes for j in i], 0.5)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in flat_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "flat"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                flat = Primitive("flat", 0, box)
+                staff_primitives.append(flat)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in flat_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "flat"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            flat = Primitive("flat", 0, box)
-            staff_primitives.append(flat)
+            print("[INFO] Matching quarter note template...")
+            quarter_boxes = locate_templates(staff_img, quarter_note_imgs, quarter_note_lower, quarter_note_upper, quarter_note_thresh)
+            quarter_boxes = merge_boxes([j for i in quarter_boxes for j in i], 0.5)
 
-        print("[INFO] Matching quarter note template...")
-        quarter_boxes = locate_templates(staff_img, quarter_note_imgs, quarter_note_lower, quarter_note_upper, quarter_note_thresh)
-        quarter_boxes = merge_boxes([j for i in quarter_boxes for j in i], 0.5)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in quarter_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "1/4 note"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                pitch = staffs[i].getPitch(round(box.getCenter()[1]))
+                print((box.getCenter()[1]))
+                quarter = Primitive("note", 1, box, pitch)
+                staff_primitives.append(quarter)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in quarter_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "1/4 note"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            pitch = staffs[i].getPitch(round(box.getCenter()[1]))
-            quarter = Primitive("note", 1, box, pitch)
-            staff_primitives.append(quarter)
+            print("[INFO] Matching half note template...")
+            half_boxes = locate_templates(staff_img, half_note_imgs, half_note_lower, half_note_upper, half_note_thresh)
+            half_boxes = merge_boxes([j for i in half_boxes for j in i], 0.5)
 
-        print("[INFO] Matching half note template...")
-        half_boxes = locate_templates(staff_img, half_note_imgs, half_note_lower, half_note_upper, half_note_thresh)
-        half_boxes = merge_boxes([j for i in half_boxes for j in i], 0.5)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in half_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "1/2 note"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                pitch = staffs[i].getPitch(round(box.getCenter()[1]))
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in half_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "1/2 note"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            pitch = staffs[i].getPitch(round(box.getCenter()[1]))
-            half = Primitive("note", 2, box, pitch)
-            staff_primitives.append(half)
+                half = Primitive("note", 2, box, pitch)
+                staff_primitives.append(half)
 
-        print("[INFO] Matching whole note template...")
-        whole_boxes = locate_templates(staff_img, whole_note_imgs, whole_note_lower, whole_note_upper, whole_note_thresh)
-        whole_boxes = merge_boxes([j for i in whole_boxes for j in i], 0.5)
+            print("[INFO] Matching whole note template...")
+            whole_boxes = locate_templates(staff_img, whole_note_imgs, whole_note_lower, whole_note_upper, whole_note_thresh)
+            whole_boxes = merge_boxes([j for i in whole_boxes for j in i], 0.5)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in whole_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "1 note"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            pitch = staffs[i].getPitch(round(box.getCenter()[1]))
-            whole = Primitive("note", 4, box, pitch)
-            staff_primitives.append(whole)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in whole_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "1 note"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                pitch = staffs[i].getPitch(round(box.getCenter()[1]))
+                whole = Primitive("note", 4, box, pitch)
+                staff_primitives.append(whole)
 
-        print("[INFO] Matching eighth rest template...")
-        eighth_boxes = locate_templates(staff_img, eighth_rest_imgs, eighth_rest_lower, eighth_rest_upper, eighth_rest_thresh)
-        eighth_boxes = merge_boxes([j for i in eighth_boxes for j in i], 0.5)
+            print("[INFO] Matching eighth rest template...")
+            eighth_boxes = locate_templates(staff_img, eighth_rest_imgs, eighth_rest_lower, eighth_rest_upper, eighth_rest_thresh)
+            eighth_boxes = merge_boxes([j for i in eighth_boxes for j in i], 0.5)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in eighth_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "1/8 rest"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            eighth = Primitive("rest", 0.5, box)
-            staff_primitives.append(eighth)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in eighth_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "1/8 rest"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                eighth = Primitive("rest", 0.5, box)
+                staff_primitives.append(eighth)
 
-        print("[INFO] Matching quarter rest template...")
-        quarter_boxes = locate_templates(staff_img, quarter_rest_imgs, quarter_rest_lower, quarter_rest_upper, quarter_rest_thresh)
-        quarter_boxes = merge_boxes([j for i in quarter_boxes for j in i], 0.5)
+            print("[INFO] Matching quarter rest template...")
+            quarter_boxes = locate_templates(staff_img, quarter_rest_imgs, quarter_rest_lower, quarter_rest_upper, quarter_rest_thresh)
+            quarter_boxes = merge_boxes([j for i in quarter_boxes for j in i], 0.5)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in quarter_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "1/4 rest"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            quarter = Primitive("rest", 1, box)
-            staff_primitives.append(quarter)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in quarter_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "1/4 rest"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                quarter = Primitive("rest", 1, box)
+                staff_primitives.append(quarter)
 
-        print("[INFO] Matching half rest template...")
-        half_boxes = locate_templates(staff_img, half_rest_imgs, half_rest_lower, half_rest_upper, half_rest_thresh)
-        half_boxes = merge_boxes([j for i in half_boxes for j in i], 0.5)
+            print("[INFO] Matching half rest template...")
+            half_boxes = locate_templates(staff_img, half_rest_imgs, half_rest_lower, half_rest_upper, half_rest_thresh)
+            half_boxes = merge_boxes([j for i in half_boxes for j in i], 0.5)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in half_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "1/2 rest"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            half = Primitive("rest", 2, box)
-            staff_primitives.append(half)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in half_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "1/2 rest"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                half = Primitive("rest", 2, box)
+                staff_primitives.append(half)
 
-        print("[INFO] Matching whole rest template...")
-        whole_boxes = locate_templates(staff_img, whole_rest_imgs, whole_rest_lower, whole_rest_upper, whole_rest_thresh)
-        whole_boxes = merge_boxes([j for i in whole_boxes for j in i], 0.5)
+            print("[INFO] Matching whole rest template...")
+            whole_boxes = locate_templates(staff_img, whole_rest_imgs, whole_rest_lower, whole_rest_upper, whole_rest_thresh)
+            whole_boxes = merge_boxes([j for i in whole_boxes for j in i], 0.5)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in whole_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "1 rest"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            whole = Primitive("rest", 4, box)
-            staff_primitives.append(whole)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in whole_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "1 rest"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                whole = Primitive("rest", 4, box)
+                staff_primitives.append(whole)
 
-        print("[INFO] Matching eighth flag template...")
-        flag_boxes = locate_templates(staff_img, eighth_flag_imgs, eighth_flag_lower, eighth_flag_upper, eighth_flag_thresh)
-        flag_boxes = merge_boxes([j for i in flag_boxes for j in i], 0.5)
+            print("[INFO] Matching eighth flag template...")
+            flag_boxes = locate_templates(staff_img, eighth_flag_imgs, eighth_flag_lower, eighth_flag_upper, eighth_flag_thresh)
+            flag_boxes = merge_boxes([j for i in flag_boxes for j in i], 0.5)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
 
-        for box in flag_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "1/8 flag"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            flag = Primitive("eighth_flag", 0, box)
-            staff_primitives.append(flag)
+            for box in flag_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "1/8 flag"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                flag = Primitive("eighth_flag", 0, box)
+                staff_primitives.append(flag)
 
-        print("[INFO] Matching bar line template...")
-        bar_boxes = locate_templates(staff_img, bar_imgs, bar_lower, bar_upper, bar_thresh)
-        bar_boxes = merge_boxes([j for i in bar_boxes for j in i], 0.5)
+            print("[INFO] Matching bar line template...")
+            bar_boxes = locate_templates(staff_img, bar_imgs, bar_lower, bar_upper, bar_thresh)
+            bar_boxes = merge_boxes([j for i in bar_boxes for j in i], 0.5)
 
-        print("[INFO] Displaying Matching Results on staff", i + 1)
-        for box in bar_boxes:
-            box.draw(staff_img_color, red, box_thickness)
-            text = "line"
-            font = cv2.FONT_HERSHEY_DUPLEX
-            textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
-            x = int(box.getCorner()[0] - (textsize[0] // 2))
-            y = int(box.getCorner()[1] + box.getHeight() + 20)
-            cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
-            line = Primitive("line", 0, box)
-            staff_primitives.append(line)
+            print("[INFO] Displaying Matching Results on staff", i + 1)
+            for box in bar_boxes:
+                box.draw(staff_img_color, red, box_thickness)
+                text = "line"
+                font = cv2.FONT_HERSHEY_DUPLEX
+                textsize = cv2.getTextSize(text, font, fontScale=0.7, thickness=1)[0]
+                x = int(box.getCorner()[0] - (textsize[0] // 2))
+                y = int(box.getCorner()[1] + box.getHeight() + 20)
+                cv2.putText(staff_img_color, text, (x, y), font, fontScale=0.7, color=red, thickness=1)
+                line = Primitive("line", 0, box)
+                staff_primitives.append(line)
 
-        print("[INFO] Saving detected primitives in staff {} onto disk".format(i+1))
-        cv2.imwrite("output/staff_{}_primitives.jpg".format(i+1), staff_img_color)
-        # open_file("output/staff_{}_primitives.jpg".format(i+1))
+            print("[INFO] Saving detected primitives in staff {} onto disk".format(i+1))
+            cv2.imwrite("output/staff_{}_primitives.jpg".format(i+1), staff_img_color)
+            # open_file("output/staff_{}_primitives.jpg".format(i+1))
 
-        # ------- Sort primitives on staff from left to right -------
+            # ------- Sort primitives on staff from left to right -------
 
-        staff_primitives.sort(key=lambda primitive: primitive.getBox().getCenter())
+            staff_primitives.sort(key=lambda primitive: primitive.getBox().getCenter())
 
-        print("[INFO] Staff primitives sorted in time")
-        eighth_flag_indices = []
-        for j in range(len(staff_primitives)):
+            print("[INFO] Staff primitives sorted in time")
+            eighth_flag_indices = []
+            for j in range(len(staff_primitives)):
 
-            if (staff_primitives[j].getPrimitive() == "eighth_flag"):
-                # Find all eighth flags
-                eighth_flag_indices.append(j)
+                if (staff_primitives[j].getPrimitive() == "eighth_flag"):
+                    # Find all eighth flags
+                    eighth_flag_indices.append(j)
 
-            if (staff_primitives[j].getPrimitive() == "note"):
-                print(staff_primitives[j].getPitch(), end=", ")
-            else:
-                print(staff_primitives[j].getPrimitive(), end=", ")
-
-        print("\n")
-
-        # ------- Correct for eighth notes -------
-        print("[INFO] Correcting for misclassified eighth notes")
-        # Sort out eighth flags
-        # Assign to closest note
-        for j in eighth_flag_indices:
-
-            distances = []
-            distance = staff_primitives[j].getBox().distance(staff_primitives[j-1].getBox())
-            distances.append(distance)
-            if (j + 1 < len(staff_primitives)):
-                distance = staff_primitives[j].getBox().distance(staff_primitives[j+1].getBox())
-                distances.append(distance)
-
-            if (distances[1] and distances[0] > distances[1]):
-                staff_primitives[j+1].setDuration(0.5)
-            else:
-                staff_primitives[j-1].setDuration(0.5)
-
-            print("[INFO] Primitive {} was a eighth note misclassified as a quarter note".format(j+1))
-            del staff_primitives[j]
-
-        # Correct for beamed eighth notes
-        # If number of pixels in center row of two notes
-        # greater than 5 * line_width, then notes are
-        # beamed
-        for j in range(len(staff_primitives)):
-            if (j+1 < len(staff_primitives)
-                and staff_primitives[j].getPrimitive() == "note"
-                and staff_primitives[j+1].getPrimitive() == "note"
-                and (staff_primitives[j].getDuration() == 1 or staff_primitives[j].getDuration() == 0.5)
-                and staff_primitives[j+1].getDuration() == 1):
-
-                # Notes of interest
-                note_1_center_x = staff_primitives[j].getBox().getCenter()[0]
-                note_2_center_x = staff_primitives[j+1].getBox().getCenter()[0]
-
-                # Regular number of black pixels in staff column
-                num_black_pixels = 5 * staffs[i].getLineWidth()
-
-                # Actual number of black pixels in mid column
-                center_column = (note_2_center_x - note_1_center_x) // 2
-                mid_col = staff_img[:, int(note_1_center_x + center_column)]
-                num_black_pixels_mid = len(np.where(mid_col == 0)[0])
-
-                if (num_black_pixels_mid > num_black_pixels):
-                    # Notes beamed
-                    # Make eighth note length
-                    staff_primitives[j].setDuration(0.5)
-                    staff_primitives[j+1].setDuration(0.5)
-                    print("[INFO] Primitive {} and {} were eighth notes misclassified as quarter notes".format(j+1, j+2))
-
-        # ------- Account for Key Signature -------
-        print("[INFO] Applying key signature note value changes")
-        num_sharps = 0
-        num_flats = 0
-        j = 0
-        while (staff_primitives[j].getDuration() == 0):
-            accidental = staff_primitives[j].getPrimitive()
-            if (accidental == "sharp"):
-                num_sharps += 1
-                j += 1
-
-            elif (accidental == "flat"):
-                num_flats += 1
-                j += 1
-
-        # Check if last accidental belongs to note
-
-        if (j != 0):
-            # Determine if accidental coupled with first note
-            # Center of accidental should be within a note width from note
-            max_accidental_offset_x = staff_primitives[j].getBox().getCenter()[0] - staff_primitives[j].getBox().getWidth()
-            accidental_center_x = staff_primitives[j-1].getBox().getCenter()[0]
-            accidental_type = staff_primitives[j-1].getPrimitive()
-
-            if (accidental_center_x > max_accidental_offset_x):
-                print("[INFO] Last accidental belongs to first note")
-                num_sharps = num_sharps - 1 if accidental_type == "sharp" else num_sharps
-                num_flats = num_flats - 1 if accidental_type == "flat" else num_flats
-
-            # Modify notes in staff
-            notes_to_modify = []
-            if (accidental_type == "sharp"):
-                print("[INFO] Key signature has {} sharp accidentals: ".format(num_sharps))
-                notes_to_modify = key_signature_changes[accidental_type][num_sharps]
-                # Remove accidentals from primitive list
-                staff_primitives = staff_primitives[num_sharps:]
-            else:
-                print("[INFO] Key signature has {} flat accidentals: ".format(num_flats))
-                notes_to_modify = key_signature_changes[accidental_type][num_flats]
-                # Remove accidentals from primitive list
-                staff_primitives = staff_primitives[num_flats:]
-
-            print("[INFO] Corrected note values after key signature: ")
-            for primitive in staff_primitives:
-                type = primitive.getPrimitive()
-                note = primitive.getPitch()
-                if (type == "note" and note[0] in notes_to_modify):
-                    new_note = MIDI_to_pitch[pitch_to_MIDI[note] + 1] if accidental_type == "sharp" else MIDI_to_pitch[pitch_to_MIDI[note] - 1]
-                    primitive.setPitch(new_note)
-
-                if (primitive.getPrimitive() == "note"):
-                    print(primitive.getPitch(), end=", ")
+                if (staff_primitives[j].getPrimitive() == "note"):
+                    print(staff_primitives[j].getPitch(), end=", ")
                 else:
-                    print(primitive.getPrimitive(), end=", ")
+                    print(staff_primitives[j].getPrimitive(), end=", ")
 
             print("\n")
 
-        # ------- Apply Sharps and Flats -------
-        print("[INFO] Applying any accidental to neighboring note")
-        primitive_indices_to_remove = []
-        for j in range(len(staff_primitives)):
-            accidental_type = staff_primitives[j].getPrimitive()
+            # ------- Correct for eighth notes -------
+            print("[INFO] Correcting for misclassified eighth notes")
+            # Sort out eighth flags
+            # Assign to closest note
+            for j in eighth_flag_indices:
 
-            if (accidental_type == "flat" or accidental_type == "sharp"):
-                max_accidental_offset_x = staff_primitives[j+1].getBox().getCenter()[0] - staff_primitives[j+1].getBox().getWidth()
-                accidental_center_x = staff_primitives[j].getBox().getCenter()[0]
-                primitive_type = staff_primitives[j+1].getPrimitive()
+                distances = []
+                distance = staff_primitives[j].getBox().distance(staff_primitives[j-1].getBox())
+                distances.append(distance)
+                if (j + 1 < len(staff_primitives)):
+                    distance = staff_primitives[j].getBox().distance(staff_primitives[j+1].getBox())
+                    distances.append(distance)
 
-                if (accidental_center_x > max_accidental_offset_x and primitive_type == "note"):
-                    print("Primitive has accidental associated with it")
-                    note = staff_primitives[j+1].getPitch()
-                    new_note = MIDI_to_pitch[pitch_to_MIDI[note] + 1] if accidental_type == "sharp" else MIDI_to_pitch[pitch_to_MIDI[note] - 1]
-                    staff_primitives[j+1].setPitch(new_note)
-                    primitive_indices_to_remove.append(i)
+                if (distances[1] and distances[0] > distances[1]):
+                    staff_primitives[j+1].setDuration(0.5)
+                else:
+                    staff_primitives[j-1].setDuration(0.5)
 
-        # Removed actioned accidentals
-        for j in primitive_indices_to_remove:
-            del staff_primitives[j]
+                print("[INFO] Primitive {} was a eighth note misclassified as a quarter note".format(j+1))
+                del staff_primitives[j]
 
-        print("[INFO] Corrected note values after accidentals: ")
-        for j in range(len(staff_primitives)):
-            if (staff_primitives[j].getPrimitive() == "note"):
-                print(staff_primitives[j].getPitch(), end=", ")
-            else:
-                print(staff_primitives[j].getPrimitive(), end=", ")
+            # Correct for beamed eighth notes
+            # If number of pixels in center row of two notes
+            # greater than 5 * line_width, then notes are
+            # beamed
+            for j in range(len(staff_primitives)):
+                if (j+1 < len(staff_primitives)
+                    and staff_primitives[j].getPrimitive() == "note"
+                    and staff_primitives[j+1].getPrimitive() == "note"
+                    and (staff_primitives[j].getDuration() == 1 or staff_primitives[j].getDuration() == 0.5)
+                    and staff_primitives[j+1].getDuration() == 1):
 
-        print("\n")
+                    # Notes of interest
+                    note_1_center_x = staff_primitives[j].getBox().getCenter()[0]
+                    note_2_center_x = staff_primitives[j+1].getBox().getCenter()[0]
+
+                    # Regular number of black pixels in staff column
+                    num_black_pixels = 5 * staffs[i].getLineWidth()
+
+                    # Actual number of black pixels in mid column
+                    center_column = (note_2_center_x - note_1_center_x) // 2
+                    mid_col = staff_img[:, int(note_1_center_x + center_column)]
+                    num_black_pixels_mid = len(np.where(mid_col == 0)[0])
+
+                    if (num_black_pixels_mid > num_black_pixels):
+                        # Notes beamed
+                        # Make eighth note length
+                        staff_primitives[j].setDuration(0.5)
+                        staff_primitives[j+1].setDuration(0.5)
+                        print("[INFO] Primitive {} and {} were eighth notes misclassified as quarter notes".format(j+1, j+2))
+
+            # ------- Account for Key Signature -------
+            print("[INFO] Applying key signature note value changes")
+            num_sharps = 0
+            num_flats = 0
+            j = 0
+            while (staff_primitives[j].getDuration() == 0):
+                accidental = staff_primitives[j].getPrimitive()
+                if (accidental == "sharp"):
+                    num_sharps += 1
+                    j += 1
+
+                elif (accidental == "flat"):
+                    num_flats += 1
+                    j += 1
+
+            # Check if last accidental belongs to note
+
+            if (j != 0):
+                # Determine if accidental coupled with first note
+                # Center of accidental should be within a note width from note
+                max_accidental_offset_x = staff_primitives[j].getBox().getCenter()[0] - staff_primitives[j].getBox().getWidth()
+                accidental_center_x = staff_primitives[j-1].getBox().getCenter()[0]
+                accidental_type = staff_primitives[j-1].getPrimitive()
+
+                if (accidental_center_x > max_accidental_offset_x):
+                    print("[INFO] Last accidental belongs to first note")
+                    num_sharps = num_sharps - 1 if accidental_type == "sharp" else num_sharps
+                    num_flats = num_flats - 1 if accidental_type == "flat" else num_flats
+
+                # Modify notes in staff
+                notes_to_modify = []
+                if (accidental_type == "sharp"):
+                    print("[INFO] Key signature has {} sharp accidentals: ".format(num_sharps))
+                    notes_to_modify = key_signature_changes[accidental_type][num_sharps]
+                    # Remove accidentals from primitive list
+                    staff_primitives = staff_primitives[num_sharps:]
+                else:
+                    print("[INFO] Key signature has {} flat accidentals: ".format(num_flats))
+                    notes_to_modify = key_signature_changes[accidental_type][num_flats]
+                    # Remove accidentals from primitive list
+                    staff_primitives = staff_primitives[num_flats:]
+
+                print("[INFO] Corrected note values after key signature: ")
+                for primitive in staff_primitives:
+                    type = primitive.getPrimitive()
+                    note = primitive.getPitch()
+                    if (type == "note" and note[0] in notes_to_modify):
+                        new_note = MIDI_to_pitch[pitch_to_MIDI[note] + 1] if accidental_type == "sharp" else MIDI_to_pitch[pitch_to_MIDI[note] - 1]
+                        primitive.setPitch(new_note)
+
+                    if (primitive.getPrimitive() == "note"):
+                        print(primitive.getPitch(), end=", ")
+                    else:
+                        print(primitive.getPrimitive(), end=", ")
+
+                print("\n")
+
+            # ------- Apply Sharps and Flats -------
+            print("[INFO] Applying any accidental to neighboring note")
+            primitive_indices_to_remove = []
+            for j in range(len(staff_primitives)):
+                accidental_type = staff_primitives[j].getPrimitive()
+
+                if (accidental_type == "flat" or accidental_type == "sharp"):
+                    max_accidental_offset_x = staff_primitives[j+1].getBox().getCenter()[0] - staff_primitives[j+1].getBox().getWidth()
+                    accidental_center_x = staff_primitives[j].getBox().getCenter()[0]
+                    primitive_type = staff_primitives[j+1].getPrimitive()
+
+                    if (accidental_center_x > max_accidental_offset_x and primitive_type == "note"):
+                        print("Primitive has accidental associated with it")
+                        note = staff_primitives[j+1].getPitch()
+                        new_note = MIDI_to_pitch[pitch_to_MIDI[note] + 1] if accidental_type == "sharp" else MIDI_to_pitch[pitch_to_MIDI[note] - 1]
+                        staff_primitives[j+1].setPitch(new_note)
+                        primitive_indices_to_remove.append(i)
+
+            # Removed actioned accidentals
+            for j in primitive_indices_to_remove:
+                del staff_primitives[j]
+
+            print("[INFO] Corrected note values after accidentals: ")
+            for j in range(len(staff_primitives)):
+                if (staff_primitives[j].getPrimitive() == "note"):
+                    print(staff_primitives[j].getPitch(), end=", ")
+                else:
+                    print(staff_primitives[j].getPrimitive(), end=", ")
+
+            print("\n")
 
 
-        # ------- Assemble Staff -------
+            # ------- Assemble Staff -------
 
-        print("[INFO] Assembling current staff")
-        bar = Bar()
-        while (len(staff_primitives) > 0):
-            primitive = staff_primitives.pop(0)
+            print("[INFO] Assembling current staff")
+            bar = Bar()
+            while (len(staff_primitives) > 0):
+                primitive = staff_primitives.pop(0)
 
-            if (primitive.getPrimitive() != "line"):
-                bar.addPrimitive(primitive)
-            else:
-                staffs[i].addBar(bar)
-                bar = Bar()
-        # Add final bar in staff
-        staffs[i].addBar(bar)
+                if (primitive.getPrimitive() != "line"):
+                    bar.addPrimitive(primitive)
+                else:
+                    staffs[i].addBar(bar)
+                    bar = Bar()
+            # Add final bar in staff
+            staffs[i].addBar(bar)
 
-    # -------------------------------------------------------------------------------
-    # Sequence MIDI
-    # -------------------------------------------------------------------------------
+        # -------------------------------------------------------------------------------
+        # Sequence MIDI
+        # -------------------------------------------------------------------------------
 
-    print("[INFO] Sequencing MIDI")
-    midi = MIDIFile(1)
-    track = 0
-    time = 0
-    channel = 0
-    volume = 100
+        print("[INFO] Sequencing MIDI")
+        midi = MIDIFile(1)
+        track = 0
+        time = 0
+        channel = 0
+        volume = 100
 
-    midi.addTrackName(track, time, "Track")
-    midi.addTempo(track, time, 110)
+        midi.addTrackName(track, time, "Track")
+        midi.addTempo(track, time, 110)
 
-    for i in range(len(staffs)):
-        print("==== Staff {} ====".format(i+1))
-        bars = staffs[i].getBars()
-        for j in range(len(bars)):
-            print("--- Bar {} ---".format(j + 1))
-            primitives = bars[j].getPrimitives()
-            for k in range(len(primitives)):
-                duration = primitives[k].getDuration()
-                if (primitives[k].getPrimitive() == "note"):
-                    pitch = pitch_to_MIDI[primitives[k].getPitch()]
-                    midi.addNote(track, channel, pitch, time, duration, volume)
-                print(primitives[k].getPrimitive())
-                print(primitives[k].getPitch())
-                print(primitives[k].getDuration())
-                print("-----")
-                time += duration
+        for i in range(len(staffs)):
+            print("==== Staff {} ====".format(i+1))
+            bars = staffs[i].getBars()
+            for j in range(len(bars)):
+                print("--- Bar {} ---".format(j + 1))
+                primitives = bars[j].getPrimitives()
+                for k in range(len(primitives)):
+                    duration = primitives[k].getDuration()
+                    if (primitives[k].getPrimitive() == "note"):
+                        pitch = pitch_to_MIDI[primitives[k].getPitch()]
+                        midi.addNote(track, channel, pitch, time, duration, volume)
+                    print(primitives[k].getPrimitive())
+                    print(primitives[k].getPitch())
+                    print(primitives[k].getDuration())
+                    print("-----")
+                    time += duration
 
-    # ------- Write to disk -------
-    print("[INFO] Writing MIDI to disk")
-    binfile = open("output/output.mid", 'wb')
-    midi.writeFile(binfile)
-    binfile.close()
-
-
-
-
-
-
-
-
-
-
+        # ------- Write to disk -------
+        print("[INFO] Writing MIDI to disk")
+        binfile = open("output/output.mid", 'wb')
+        midi.writeFile(binfile)
+        binfile.close()
